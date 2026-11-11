@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平行板电容器 · 数字孪生实验平台</title>
+<style>
+  :root{
+    --bg:#f7f5f1; --panel:#fffdfa; --ink:#26231f; --muted:#6f6a63;
+    --line:#ded6c9; --accent:#b03a2e; --accent2:#2d6a8f; --ok:#3d7a4f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    display:flex;align-items:baseline;gap:14px;
+    padding:18px 26px 12px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#fffdfa,#f7f5f1);
+  }
+  header h1{font-size:19px;margin:0;letter-spacing:.5px}
+  header .sub{font-size:12.5px;color:var(--muted)}
+  header .badge{
+    margin-left:auto;font-size:12px;color:var(--accent);
+    border:1px solid var(--accent);border-radius:999px;padding:3px 10px;
+  }
+  main{
+    display:grid;grid-template-columns:minmax(420px,1.35fr) minmax(330px,.95fr);
+    gap:18px;padding:18px 26px 26px;height:calc(100% - 62px);
+  }
+  @media (max-width:1080px){
+    main{grid-template-columns:1fr;height:auto}
+  }
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;box-shadow:0 1px 0 rgba(0,0,0,.02);
+  }
+  .card h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600;letter-spacing:1px}
+  .left{display:flex;flex-direction:column;gap:16px;min-height:0}
+  #stageWrap{flex:1;min-height:280px;display:flex}
+  canvas{width:100%;height:100%;display:block;border-radius:10px}
+  .ctrl{display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:center;gap:10px}
+  .row label{width:104px;font-size:13px;color:var(--ink)}
+  .row .val{
+    width:96px;text-align:right;font-variant-numeric:tabular-nums;
+    font-size:13.5px;color:var(--accent2);font-weight:600;
+  }
+  input[type=range]{
+    -webkit-appearance:none;flex:1;height:5px;border-radius:999px;
+    background:#e6ddcf;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);
+    cursor:pointer;
+  }
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .metric{
+    border:1px solid var(--line);border-radius:11px;padding:9px 11px;background:#fff;
+  }
+  .metric .k{font-size:11.5px;color:var(--muted)}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .metric .u{font-size:11.5px;color:var(--muted);margin-left:3px;font-weight:400}
+  .formula{
+    font-size:13px;line-height:2;background:#fbf7ef;border:1px dashed var(--line);
+    border-radius:10px;padding:10px 12px;color:#3a352e;
+  }
+  .formula code{font-family:Consolas,Menlo,monospace;font-size:13.5px;color:var(--accent)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{
+    font:inherit;font-size:12.5px;padding:7px 12px;border-radius:9px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+    transition:.15s;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.06);color:#fff}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.7}
+  .tabbar{display:flex;gap:6px;margin-bottom:10px}
+  .tabbar button{padding:5px 11px;font-size:12px}
+  .tabbar button.on{background:#f1e7d9;border-color:var(--accent);color:var(--accent)}
+  #chartWrap{height:170px}
+  footer{
+    padding:0 26px 14px;font-size:11.5px;color:var(--muted);
+  }
+  kbd{
+    font-family:Consolas,monospace;font-size:11px;background:#f0e9dd;
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>平行板电容器 · 数字孪生实验平台</h1>
+  <span class="sub">参数可调 · 实时响应 · 可视化电场</span>
+  <span class="badge">物理 · 数字孪生</span>
+</header>
+
+<main>
+  <!-- 左：可视化 + 曲线 -->
+  <section class="left">
+    <div class="card" id="stageWrap">
+      <canvas id="stage"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>特性曲线</h2>
+      <div class="tabbar">
+        <button class="on" data-curve="cd">C – d 曲线</button>
+        <button data-curve="cq">Q – U 曲线</button>
+        <button data-curve="ce">E – d 曲线</button>
+      </div>
+      <div id="chartWrap"><canvas id="chart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 右：控制 + 读数 -->
+  <aside class="left">
+    <div class="card">
+      <h2>参数调节</h2>
+      <div class="ctrl">
+        <div class="row">
+          <label>板间距离 d</label>
+          <input id="d" type="range" min="0.2" max="10" step="0.1" value="2">
+          <span class="val" id="dVal">2.0 mm</span>
+        </div>
+        <div class="row">
+          <label>极板正对面积 S</label>
+          <input id="S" type="range" min="10" max="600" step="5" value="200">
+          <span class="val" id="SVal">200 cm²</span>
+        </div>
+        <div class="row">
+          <label>相对介电常数 εr</label>
+          <input id="er" type="range" min="1" max="10" step="0.1" value="1">
+          <span class="val" id="erVal">1.0</span>
+        </div>
+        <div class="row">
+          <label>极板电压 U</label>
+          <input id="U" type="range" min="0" max="1000" step="10" value="300">
+          <span class="val" id="UVal">300 V</span>
+        </div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button class="primary" id="play">▶ 自动扫描 d</button>
+        <button id="reset">重置</button>
+        <button id="csv">导出数据 CSV</button>
+      </div>
+      <div class="hint" style="margin-top:10px">
+        预设介质：
+        <button data-er="1">空气 1.0</button>
+        <button data-er="2.3">纸 2.3</button>
+        <button data-er="4.5">云母 4.5</button>
+        <button data-er="6.0">陶瓷 6.0</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>实时读数</h2>
+      <div class="readouts">
+        <div class="metric"><div class="k">电容 C</div><div class="v" id="mC">—</div></div>
+        <div class="metric"><div class="k">电荷量 Q</div><div class="v" id="mQ">—</div></div>
+        <div class="metric"><div class="k">场强 E</div><div class="v" id="mE">—</div></div>
+        <div class="metric"><div class="k">储能 W</div><div class="v" id="mW">—</div></div>
+      </div>
+      <div class="formula" style="margin-top:12px">
+        核心公式<br>
+        <code>C = ε₀ εr S / d</code><br>
+        <code>Q = C · U</code>　<code>E = U / d</code>　<code>W = ½CU²</code>
+      </div>
+      <div class="hint" style="margin-top:10px">
+        <kbd>空格</kbd> 播放/暂停自动扫描　<kbd>R</kbd> 重置<br>
+        ε₀ = 8.854×10⁻¹² F/m
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  提示：拖动任一滑块，平台会同步更新电场、电荷与数值；「自动扫描 d」可用于录制 d 变化 → C 变化的演示视频。
+</footer>
+
+<script>
+(function(){
+  const EPS0 = 8.854e-12;
+
+  const el = id => document.getElementById(id);
+  const dEl = el('d'), SEl = el('S'), erEl = el('er'), UEl = el('U');
+  const dVal = el('dVal'), SVal = el('SVal'), erVal = el('erVal'), UVal = el('UVal');
+  const mC = el('mC'), mQ = el('mQ'), mE = el('mE'), mW = el('mW');
+  const stage = el('stage'), chart = el('chart');
+
+  let state = { d:2.0, S:200, er:1.0, U:300 };
+  let curve = 'cd';
+  let playing = false, dir = -1, raf = null, t = 0;
+
+  // ---------- 物理量 ----------
+  function physics(){
+    const d = state.d * 1e-3;          // m
+    const S = state.S * 1e-4;          // m²
+    const er = state.er;
+    const U = state.U;
+    const C = EPS0 * er * S / d;       // F
+    const Q = C * U;                   // C
+    const E = U / d;                   // V/m
+    const W = 0.5 * C * U * U;         // J
+    return {d,S,er,U,C,Q,E,W};
+  }
+
+  function fmt(v, unit){
+    const a = Math.abs(v);
+    if (a === 0) return '0 ' + unit;
+    const pre = [[1e-12,'p'],[1e-9,'n'],[1e-6,'µ'],[1e-3,'m'],[1,''],[1e3,'k'],[1e6,'M']];
+    let sel = pre[0];
+    for (const p of pre){ if (a >= p[0]) sel = p; }
+    const num = v / sel[0];
+    const digit = Math.abs(num) >= 100 ? 1 : Math.abs(num) >= 10 ? 2 : 3;
+    return num.toFixed(digit) + ' ' + sel[1] + unit;
+  }
+
+  function fmtAxis(v){
+    if (v === 0) return '0';
+    const a = Math.abs(v);
+    if (a >= 1e-3 && a < 1e4) return String(+v.toPrecision(3));
+    return v.toExponential(1);
+  }
+
+  // ---------- 画布尺寸 ----------
+  function fit(cv){
+    const r = cv.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.max(320, r.width * dpr);
+    cv.height = Math.max(160, r.height * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w:r.width, h:r.height, ctx};
+  }
+
+  // ---------- 主视图 ----------
+  function drawStage(){
+    const {w,h,ctx} = fit(stage);
+    ctx.clearRect(0,0,w,h);
+
+    // 背景网格
+    ctx.strokeStyle = '#efe8db'; ctx.lineWidth = 1;
+    for (let x=0;x<w;x+=28){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y=0;y<h;y+=28){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+    const {C,Q,E,U} = physics();
+    const cx = w*0.5;
+    const plateW = Math.min(w*0.52, 520);
+    const x0 = cx - plateW/2, x1 = cx + plateW/2;
+
+    // 距离映射：0.2mm..10mm -> 26..150px
+    const gapPx = 26 + (state.d/10) * 124;
+    const midY = h*0.5;
+    const upY = midY - gapPx/2, dnY = midY + gapPx/2;
+
+    // 介质层
+    if (state.er > 1.001){
+      ctx.fillStyle = 'rgba(45,106,143,.10)';
+      ctx.fillRect(x0, upY, plateW, gapPx);
+      ctx.strokeStyle = 'rgba(45,106,143,.45)';
+      ctx.setLineDash([6,5]);
+      ctx.strokeRect(x0, upY, plateW, gapPx);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(45,106,143,.85)';
+      ctx.font = '12px "Microsoft YaHei"';
+      ctx.fillText('介质 εr = ' + state.er.toFixed(1), x0 + 8, upY + 16);
+    }
+
+    // 电场线
+    if (state.U > 0){
+      const lines = 9;
+      const alpha = Math.min(0.85, 0.15 + Math.min(E/ (5e5), 1) * 0.7);
+      ctx.strokeStyle = 'rgba(176,58,46,' + alpha.toFixed(3) + ')';
+      ctx.lineWidth = 1.6;
+      const phase = (t*0.6) % 18;
+      for (let i=0;i<lines;i++){
+        const x = x0 + plateW*(i+0.5)/lines;
+        ctx.beginPath(); ctx.moveTo(x,upY+2); ctx.lineTo(x,dnY-2); ctx.stroke();
+        // 箭头
+        for (let y = upY+10+phase; y < dnY-6; y += 18){
+          ctx.beginPath();
+          ctx.moveTo(x, y+5); ctx.lineTo(x-3.4, y-1); ctx.lineTo(x+3.4, y-1);
+          ctx.closePath(); ctx.fillStyle = 'rgba(176,58,46,'+alpha.toFixed(3)+')'; ctx.fill();
+        }
+      }
+    }
+
+    // 极板
+    const plateH = 9;
+    ctx.fillStyle = '#3a352e';
+    ctx.fillRect(x0-6, upY-plateH, plateW+12, plateH);
+    ctx.fillRect(x0-6, dnY, plateW+12, plateH);
+
+    // 电荷符号
+    ctx.font = 'bold 15px Consolas, monospace';
+    const nSig = 7;
+    for (let i=0;i<nSig;i++){
+      const x = x0 + plateW*(i+0.5)/nSig;
+      ctx.fillStyle = '#b03a2e';
+      ctx.fillText('+', x-5, upY-16);
+      ctx.fillStyle = '#2d6a8f';
+      ctx.fillText('−', x-4, dnY+24);
+    }
+
+    // 距离标注
+    ctx.strokeStyle = '#8a8479'; ctx.lineWidth = 1.2;
+    const ax = x1 + 26;
+    ctx.beginPath(); ctx.moveTo(ax, upY); ctx.lineTo(ax, dnY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax-4, upY); ctx.lineTo(ax+4, upY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax-4, dnY); ctx.lineTo(ax+4, dnY); ctx.stroke();
+    ctx.fillStyle = '#3a352e'; ctx.font = '13px "Microsoft YaHei"';
+    ctx.fillText('d = ' + state.d.toFixed(1) + ' mm', ax + 9, (upY+dnY)/2 + 5);
+
+    // 面积标注
+    ctx.fillStyle = '#6f6a63'; ctx.font = '12px "Microsoft YaHei"';
+    ctx.fillText('S = ' + state.S + ' cm²', x0, upY - 24);
+
+    // 标题行
+    ctx.fillStyle = '#26231f'; ctx.font = 'bold 14px "Microsoft YaHei"';
+    ctx.fillText('平行板电容器（实时孪生）', 14, 24);
+    ctx.fillStyle = '#6f6a63'; ctx.font = '12px "Microsoft YaHei"';
+    ctx.fillText('U = ' + state.U + ' V　E = ' + fmt(E,'V/m') + '　C = ' + fmt(C,'F'), 14, 44);
+  }
+
+  // ---------- 曲线 ----------
+  function drawChart(){
+    const {w,h,ctx} = fit(chart);
+    ctx.clearRect(0,0,w,h);
+    const padL = 58, padR = 16, padT = 14, padB = 30;
+    const x0 = padL, x1 = w-padR, y0 = padT, y1 = h-padB;
+
+    ctx.strokeStyle = '#e7ddcd'; ctx.lineWidth = 1;
+    ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+
+    const pts = [];
+    const N = 80;
+    if (curve === 'cd'){
+      for (let i=0;i<=N;i++){
+        const d = 0.2 + (10-0.2)*i/N;
+        const C = EPS0*state.er*(state.S*1e-4)/(d*1e-3);
+        pts.push([d, C]);
+      }
+    } else if (curve === 'cq'){
+      for (let i=0;i<=N;i++){
+        const U = 1000*i/N;
+        const C = EPS0*state.er*(state.S*1e-4)/(state.d*1e-3);
+        pts.push([U, C*U]);
+      }
+    } else {
+      for (let i=0;i<=N;i++){
+        const d = 0.2 + (10-0.2)*i/N;
+        const E = state.U/(d*1e-3);
+        pts.push([d, E]);
+      }
+    }
+
+    const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+    const xmin = Math.min(...xs), xmax = Math.max(...xs);
+    const ymin = 0, ymax = Math.max(...ys)*1.08 || 1;
+    const X = v => x0 + (v-xmin)/(xmax-xmin)*(x1-x0);
+    const Y = v => y1 - (v-ymin)/(ymax-ymin)*(y1-y0);
+
+    // 轴刻度
+    ctx.fillStyle = '#8a8479'; ctx.font = '10.5px Consolas, monospace';
+    for (let i=0;i<=4;i++){
+      const yv = ymin + (ymax-ymin)*i/4;
+      ctx.fillText(fmtAxis(yv), 6, Y(yv)+3);
+      ctx.beginPath(); ctx.strokeStyle='#f0e9dd';
+      ctx.moveTo(x0, Y(yv)); ctx.lineTo(x1, Y(yv)); ctx.stroke();
+    }
+    for (let i=0;i<=4;i++){
+      const xv = xmin + (xmax-xmin)*i/4;
+      ctx.fillText(xv.toFixed(curve==='cq'?0:1), X(xv)-8, y1+18);
+    }
+
+    // 曲线
+    ctx.beginPath();
+    pts.forEach((p,i)=> i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1])));
+    ctx.strokeStyle = '#b03a2e'; ctx.lineWidth = 2.2; ctx.stroke();
+
+    // 当前点
+    let cur;
+    if (curve==='cd') cur = [state.d, physics().C];
+    else if (curve==='cq') cur = [state.U, physics().Q];
+    else cur = [state.d, physics().E];
+
+    ctx.beginPath();
+    ctx.arc(X(cur[0]), Y(cur[1]), 5, 0, Math.PI*2);
+    ctx.fillStyle = '#2d6a8f'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    // 标注
+    ctx.fillStyle = '#3a352e'; ctx.font = '11.5px "Microsoft YaHei"';
+    const label = curve==='cd' ? '横轴 d / mm，纵轴 C / F'
+                : curve==='cq' ? '横轴 U / V，纵轴 Q / C'
+                : '横轴 d / mm，纵轴 E / V·m⁻¹';
+    ctx.fillText(label, x0+6, y0+13);
+  }
+
+  // ---------- 更新 ----------
+  function update(){
+    const {C,Q,E,W} = physics();
+    mC.innerHTML = fmt(C,'F');
+    mQ.innerHTML = fmt(Q,'C');
+    mE.innerHTML = fmt(E,'V/m');
+    mW.innerHTML = fmt(W,'J');
+    dVal.textContent = state.d.toFixed(1) + ' mm';
+    SVal.textContent = state.S + ' cm²';
+    erVal.textContent = state.er.toFixed(1);
+    UVal.textContent = state.U + ' V';
+    drawStage();
+    drawChart();
+  }
+
+  // ---------- 交互 ----------
+  function bind(){
+    dEl.oninput = e => { state.d = +e.target.value; update(); };
+    SEl.oninput = e => { state.S = +e.target.value; update(); };
+    erEl.oninput = e => { state.er = +e.target.value; update(); };
+    UEl.oninput = e => { state.U = +e.target.value; update(); };
+
+    document.querySelectorAll('[data-er]').forEach(b=>{
+      b.onclick = ()=>{ state.er = +b.dataset.er; erEl.value = state.er; update(); };
+    });
+
+    document.querySelectorAll('[data-curve]').forEach(b=>{
+      b.onclick = ()=>{
+        document.querySelectorAll('[data-curve]').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        curve = b.dataset.curve; drawChart();
+      };
+    });
+
+    el('play').onclick = ()=> togglePlay();
+    el('reset').onclick = ()=>{
+      state = {d:2.0,S:200,er:1.0,U:300};
+      dEl.value=2; SEl.value=200; erEl.value=1; UEl.value=300;
+      update();
+    };
+    el('csv').onclick = ()=>{
+      let rows = ['d_mm,S_cm2,er,U_V,C_F,Q_C,E_Vm,W_J'];
+      for (let i=0;i<=40;i++){
+        const d = 0.2 + (10-0.2)*i/40;
+        const C = EPS0*state.er*(state.S*1e-4)/(d*1e-3);
+        rows.push([d.toFixed(2), state.S, state.er, state.U,
+                   C.toExponential(4), (C*state.U).toExponential(4),
+                   (state.U/(d*1e-3)).toExponential(4),
+                   (0.5*C*state.U*state.U).toExponential(4)].join(','));
+      }
+      const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'capacitor_data.csv'; a.click();
+    };
+
+    window.addEventListener('keydown', e=>{
+      if (e.code === 'Space'){ e.preventDefault(); togglePlay(); }
+      if (e.key === 'r' || e.key === 'R'){ el('reset').click(); }
+    });
+    window.addEventListener('resize', ()=>{ drawStage(); drawChart(); });
+  }
+
+  function togglePlay(){
+    playing = !playing;
+    el('play').textContent = playing ? '⏸ 暂停扫描' : '▶ 自动扫描 d';
+    if (playing) loop();
+  }
+
+  function loop(ts){
+    if (!playing) return;
+    t = ts || 0;
+    state.d += dir * 0.06;
+    if (state.d <= 0.2){ state.d = 0.2; dir = 1; }
+    if (state.d >= 10){ state.d = 10; dir = -1; }
+    dEl.value = state.d;
+    update();
+    raf = requestAnimationFrame(loop);
+  }
+
+  bind();
+  update();
+})();
+</script>
+</body>
+</html>
